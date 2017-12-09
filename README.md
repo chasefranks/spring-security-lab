@@ -11,3 +11,7 @@ git checkout -b jwt-lab
 ```
 
 Add documentation to this README when your lab is complete.
+
+## References
+
+[Spring Security Reference](https://docs.spring.io/spring-security/site/docs/5.0.0.RELEASE/reference/htmlsingle/)
