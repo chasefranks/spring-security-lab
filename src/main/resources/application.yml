@@ -1,0 +1,6 @@
+# controls whether a session will be created or not, default is stateless which is why you don't see JSESSIONID
+security:
+  user:
+    name: chase
+    password: changeme
+
