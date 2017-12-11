@@ -161,6 +161,53 @@ curl -u chase:changeme localhost:8080/api/admin/resource
 
 after retrying the request. The 401 code we received above was because we hadn't authenticated. In this case, we get a 403 to indicate the user was authenticated but doesn't have the right permissions.
 
+#### More Users and Various Roles
+
+Now the Spring Boot autoconfiguration and the `security.*` properties are limited to this one user. To do anything interesting we probably need at least one user per application defined role. The beauty of Spring and dependency injection is that we can preserve everything Spring Boot does out of the box, and define what we need by injecting it into the application context:
+
+```java
+@Bean
+public UserDetailsService inMemoryUserDetails() {
+	
+	InMemoryUserDetailsManager inMemoryUserDetailsManager = new InMemoryUserDetailsManager();
+	
+	inMemoryUserDetailsManager.createUser(		
+		User.withUsername("chase")
+			.password("chase")
+			.roles("ADMIN")
+			.build()
+	);
+	
+	inMemoryUserDetailsManager.createUser(
+		User.withUsername("john")
+			.password("john")
+			.roles("USER")
+			.build()
+	);
+	
+	inMemoryUserDetailsManager.createUser(
+		User.withUsername("sara")
+			.password("sara")
+			.roles("USER")
+			.build()
+	);
+	
+	return inMemoryUserDetailsManager;
+	
+}
+```
+
+Try the service out with any of these user/role combinations to convince yourself that they have been added to the user service:
+
+```
+
+```
+
+All we've done here is created multiple users/roles in an `InMemoryUserDetailsManager`. This is a `UserDetailsService` backed by a `Map` in memory. This service will get injected into the `AuthenticationManager`, which in turn is injected into the `BasicAuthenticationFilter`. 
+
+Having users in-memory is great for testing and debugging. If you think about it, we have exercised a large piece of the Spring Security framework up to this point: UserDetails, AuthenticationManager, roles and grant authorities, principals, etc. If you were doing this in production, instead of an `InMemoryUserDetailsManager`, you would have your own custom implementation of the `UserDetailsService` that would connect to a database of users. Again, dependency injection would allow you to simply inject this custom implementation into the context when needed, and use the in-memory version for local testing. The security logic is the same no matter which implementation allowing you to focus on the users and roles, and what they can access.
+ 
+
 ## References
 
 [Spring Security Reference](https://docs.spring.io/spring-security/site/docs/5.0.0.RELEASE/reference/htmlsingle/)

@@ -17,6 +17,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -27,6 +30,36 @@ public class SpringSecurityLabApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(SpringSecurityLabApplication.class, args);
+	}
+	
+	@Bean
+	public UserDetailsService inMemoryUserDetails() {
+		
+		InMemoryUserDetailsManager inMemoryUserDetailsManager = new InMemoryUserDetailsManager();
+		
+		inMemoryUserDetailsManager.createUser(		
+			User.withUsername("chase")
+				.password("chase")
+				.roles("ADMIN")
+				.build()
+		);
+		
+		inMemoryUserDetailsManager.createUser(
+			User.withUsername("john")
+				.password("john")
+				.roles("USER")
+				.build()
+		);
+		
+		inMemoryUserDetailsManager.createUser(
+			User.withUsername("sara")
+				.password("sara")
+				.roles("USER")
+				.build()
+		);
+		
+		return inMemoryUserDetailsManager;
+		
 	}
 	
 	@Bean
@@ -80,7 +113,7 @@ public class SpringSecurityLabApplication {
 	public CommandLineRunner inspectAuthenticationManager(ApplicationContext ctx) {
 		return (args) -> {
 			AuthenticationManager authManager = (AuthenticationManager) ctx.getBean(AuthenticationManager.class);
-			Authentication authentication = authManager.authenticate(new UsernamePasswordAuthenticationToken("chase", "changeme"));
+			Authentication authentication = authManager.authenticate(new UsernamePasswordAuthenticationToken("chase", "chase"));
 			
 			log.info("authentication success!");
 			log.info(authentication.getName());
