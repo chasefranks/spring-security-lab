@@ -200,12 +200,23 @@ public UserDetailsService inMemoryUserDetails() {
 Try the service out with any of these user/role combinations to convince yourself that they have been added to the user service:
 
 ```
+curl -u john:john localhost:8080/api/resource
+resource for john
 
+curl -u john:john localhost:8080/api/admin/resource
+{"timestamp":1513025662442,"status":403,"error":"Forbidden","message":"Access is denied","path":"/api/admin/resource"}
+
+curl -u chase:chase localhost:8080/api/admin/resource
+admin resource
 ```
 
 All we've done here is created multiple users/roles in an `InMemoryUserDetailsManager`. This is a `UserDetailsService` backed by a `Map` in memory. This service will get injected into the `AuthenticationManager`, which in turn is injected into the `BasicAuthenticationFilter`. 
 
 Having users in-memory is great for testing and debugging. If you think about it, we have exercised a large piece of the Spring Security framework up to this point: UserDetails, AuthenticationManager, roles and grant authorities, principals, etc. If you were doing this in production, instead of an `InMemoryUserDetailsManager`, you would have your own custom implementation of the `UserDetailsService` that would connect to a database of users. Again, dependency injection would allow you to simply inject this custom implementation into the context when needed, and use the in-memory version for local testing. The security logic is the same no matter which implementation allowing you to focus on the users and roles, and what they can access.
+
+##### Challenge
+
+Expose an endpoint that allows any ADMIN to change the role of another user.
  
 
 ## References
