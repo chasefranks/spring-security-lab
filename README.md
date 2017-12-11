@@ -98,6 +98,69 @@ curl -u chase:changeme localhost:8080/api/resource
 resource
 ```
 
+#### Customizing the Role
+
+A `Principal` authenticated in Spring Security can have a list of granted authorities that determine what they are allowed to do in the application. In addition to being authenticated, I could require that a user has the **admin** authority to access the `/admin/**` paths. To do this, we need another `SecurityFilterChain`.
+
+```java
+@Bean
+	public WebSecurityConfigurerAdapter adminWebSecurity() {
+		return new WebSecurityConfigurerAdapter() {
+			@Override
+			protected void configure(HttpSecurity http) throws Exception {				
+				http.authorizeRequests()
+					.antMatchers("/api/admin/**")
+					.hasRole("ADMIN")
+					.and()
+					.httpBasic()
+					.and()
+					.csrf().disable()
+					.sessionManagement()
+					.sessionCreationPolicy(SessionCreationPolicy.STATELESS); 				
+			}
+		};	
+	}
+```
+
+Notice what this does from the log. You should be able to see that we get a new filter chain 
+
+```
+2017-12-11 14:04:10.790  INFO 24777 --- [           main] o.s.s.web.DefaultSecurityFilterChain     : Creating filter chain: org.springframework.security.web.util.matcher.AnyRequestMatcher@1, [org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@38499e48, org.springframework.security.web.context.SecurityContextPersistenceFilter@1ec7d8b3, org.springframework.security.web.header.HeaderWriterFilter@534ca02b, org.springframework.security.web.authentication.logout.LogoutFilter@3b152928, org.springframework.security.web.authentication.www.BasicAuthenticationFilter@c3fa05a, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@5bb3131b, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@516ebdf8, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@4905c46b, org.springframework.security.web.session.SessionManagementFilter@736ac09a, org.springframework.security.web.access.ExceptionTranslationFilter@66908383, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@301d8120]
+```
+
+The `FilterChainProxy` class will apply the first matching filter chain in its list of `SecurityFilterChain`s, in this case, we got lucky because our most specific pattern comes before the more generic chain matching `/api/**`. This is due to the Spring Boot autoconfiguration.
+
+Now add the ADMIN role to our user
+
+```yaml
+security:
+  user:
+    name: chase
+    password: changeme
+    role:
+    - ADMIN
+    
+  basic:
+    path:
+    - "/api/**"
+```
+
+and try to access the `/api/admin/resource` url
+
+```
+curl -u chase:changeme localhost:8080/api/admin/resource
+admin resource
+```
+
+If we remove the role and bounce the service, you should see
+
+```
+curl -u chase:changeme localhost:8080/api/admin/resource
+{"timestamp":1513023056712,"status":403,"error":"Forbidden","message":"Access is denied","path":"/api/admin/resource"}
+```
+
+after retrying the request. The 401 code we received above was because we hadn't authenticated. In this case, we get a 403 to indicate the user was authenticated but doesn't have the right permissions.
+
 ## References
 
 [Spring Security Reference](https://docs.spring.io/spring-security/site/docs/5.0.0.RELEASE/reference/htmlsingle/)

@@ -13,6 +13,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -24,6 +27,25 @@ public class SpringSecurityLabApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(SpringSecurityLabApplication.class, args);
+	}
+	
+	@Bean
+	public WebSecurityConfigurerAdapter adminWebSecurity() {
+		return new WebSecurityConfigurerAdapter() {
+			@Override
+			protected void configure(HttpSecurity http) throws Exception {				
+				http.authorizeRequests()
+					.antMatchers("/api/admin/**")
+					.hasRole("ADMIN")
+					.and()
+					.httpBasic()
+					.and()
+					.csrf().disable()
+					.sessionManagement()
+					.sessionCreationPolicy(SessionCreationPolicy.STATELESS);  
+				
+			}
+		};		
 	}
 	
 	/**
