@@ -65,6 +65,39 @@ Restart the service and try to access the resource with
 curl -u chase:changeme localhost:8080/resource
 ```
 
+#### Customizing the Protected URL Pattern
+
+A common pattern in web services that sit directly behind web applications is to separate API requests by prefixing the url with `/api`. Suppose we do this with our service and change the route to `/api/resource`. I may only want to secure endpoints that begin with `/api` and have everything else unsecured. To do this we use the `security.basic.path` property in our application.yml:
+
+```yaml
+security:
+  user:
+    name: chase
+    password: changeme
+    
+  basic:
+    path:
+    - "/api/**"
+```
+
+Let's add an unprotected resource under `/unprotected`. Since this doesn't start with `/api` we can access it with the usual curl command
+
+```
+curl localhost:8080/unprotected
+unprotected
+```
+
+but we can't get to our `/api/resource` without authenticating as before
+
+```
+curl localhost:8080/api/resource
+{"timestamp":1513019493411,"status":401,"error":"Unauthorized","message":"Full authentication is required to access this resource","path":"/api/resource"}
+
+# try again
+curl -u chase:changeme localhost:8080/api/resource
+resource
+```
+
 ## References
 
 [Spring Security Reference](https://docs.spring.io/spring-security/site/docs/5.0.0.RELEASE/reference/htmlsingle/)
