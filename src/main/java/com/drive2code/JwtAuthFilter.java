@@ -1,6 +1,7 @@
 package com.drive2code;
 
 import java.io.IOException;
+import java.security.Principal;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -10,11 +11,20 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.GenericFilterBean;
 
 public class JwtAuthFilter extends GenericFilterBean {
 	
 	private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
+	
+	private JwtService jwtService;	
+
+	public JwtAuthFilter(JwtService jwtService) {
+		this.jwtService = jwtService;
+	}
 
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -39,17 +49,22 @@ public class JwtAuthFilter extends GenericFilterBean {
 		String tokenString = authHeaderValue.trim().split(" ")[1];
 		log.info("token: " + tokenString);
 		
+		String subject = jwtService.verifyToken(tokenString);
+		
+		log.info("jwt verified: subject = {}", subject);
+		
 		// use this logic to populate the SecurityContext if the jwt is valid		
-//		Principal p = new Principal() {			
-//			@Override
-//			public String getName() {
-//				return tokenString;
-//			}
-//		};
-//		
-//		Authentication auth = new UsernamePasswordAuthenticationToken(p, null, null);
-//		
-//		SecurityContextHolder.getContext().setAuthentication(auth);
+		Principal p = new Principal() {			
+			@Override
+			public String getName() {
+				return subject;
+			}
+		};
+		
+		Authentication auth = new UsernamePasswordAuthenticationToken(p, null, null);
+		
+		log.info("adding authentication {} to the SecurityContext", auth);
+		SecurityContextHolder.getContext().setAuthentication(auth);
 		
 		// send request down the chain
 		chain.doFilter(request, response);

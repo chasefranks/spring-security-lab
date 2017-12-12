@@ -6,6 +6,7 @@ import javax.servlet.Filter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,6 +14,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
@@ -27,17 +29,23 @@ public class SpringSecurityLabApplication {
 	}
 	
 	@Bean
-	public WebSecurityConfigurerAdapter jwtWebSecurityChain() {
+	public WebSecurityConfigurerAdapter jwtWebSecurityChain(JwtService jwtService) {
 		return new WebSecurityConfigurerAdapter() {
 			@Override
 			protected void configure(HttpSecurity http) throws Exception {
 				http.antMatcher("/api/**")
 					.authorizeRequests().anyRequest().authenticated()
 					.and()
-					.addFilterAt(new JwtAuthFilter(), BasicAuthenticationFilter.class)
-					.csrf().disable();
+					.addFilterAt(new JwtAuthFilter(jwtService), BasicAuthenticationFilter.class)
+					.csrf().disable()
+					.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 			}
 		};
+	}
+	
+	@Bean
+	public JwtService jwtService(@Value("${jwt.secret}") String secret) {
+		return new JwtService(secret);
 	}
 	
 	/*

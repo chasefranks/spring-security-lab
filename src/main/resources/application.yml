@@ -6,3 +6,6 @@ security:
   basic:
     path:
     - /token
+    
+jwt:
+  secret: thesecretgarden

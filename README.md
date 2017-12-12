@@ -297,4 +297,264 @@ SecurityContextHolder.getContext().setAuthentication(auth);
 which populates the `SecurityContext`. When we decide that our JWT is valid and can be trusted, we simply populate the `SecurityContext` with an `Authentication` token. There's really no magic going on.
 
 
+## Verifying the JWT
+
+To verify Json web tokens, we will use the [JJWT](https://github.com/jwtk/jjwt) library. We just need to add the dependency to our build.gradle file
+
+```
+dependencies {
+	...
+	compile('io.jsonwebtoken:jjwt:0.9.0')
+	...
+}
+```
+
+Let's keep it really simple and start by creating a service that will verify signed JWTs for us
+
+```java
+public class JwtService {
+	
+	private final String secret;	
+	
+	public JwtService(String secret) {
+		this.secret = secret;
+	}
+
+	public String verifyToken(String tokenString) {		
+		Jws<Claims> claims = Jwts.parser()
+			.setSigningKey(secret.getBytes())
+			.parseClaimsJws(tokenString); // this throws a number of exceptions
+		
+		return claims.getBody().getSubject();			
+	}
+
+}
+```
+
+Note, in the body of the `verifyToken` we are using the JJWT library. 
+
+To use it, we create it as a bean using a new property called `jwt.secret`
+
+```yaml
+# application.yml
+    
+jwt:
+  secret: thesecretgarden
+```
+
+```java
+@Bean
+public JwtService jwtService(@Value("${jwt.secret}") String secret) {
+	return new JwtService(secret);
+}
+```
+
+Finally, in our `JwtAuthFilter#doFilter` method, we can call our new service
+
+```java
+String subject = jwtService.verifyToken(tokenString);
+		
+log.info("jwt verified: subject = {}", subject);
+
+// use this logic to populate the SecurityContext if the jwt is valid		
+Principal p = new Principal() {			
+	@Override
+	public String getName() {
+		return subject;
+	}
+};
+
+Authentication auth = new UsernamePasswordAuthenticationToken(p, null, null);
+
+log.info("adding authentication {} to the SecurityContext", auth);
+SecurityContextHolder.getContext().setAuthentication(auth);
+```
+
+Ok, let's try it out. First, let's try the 'happy path'. Go over to [jwt.io](https://jwt.io/) and let's create a token using our secret. The jwt I created has this structure:
+
+```json
+// header
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+// payload
+{
+  "sub": "chase",
+  "name": "Chase Franks",
+  "exp": 1513114776
+}
+```
+
+and using the secret 'thesecretgarden', we get the token
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjaGFzZSIsIm5hbWUiOiJDaGFzZSBGcmFua3MiLCJleHAiOjE1MTMxMTQ3NzZ9.GtDIWF14w_jcdEJe08ethK5Cy_idGmoaNp2NZ1Rv7mo
+```
+
+Let's try passing it to the service:
+
+```
+curl localhost:8080/api/contact/12 \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjaGFzZSIsIm5hbWUiOiJDaGFzZSBGcmFua3MiLCJleHAiOjE1MTMxMTQ3NzZ9.GtDIWF14w_jcdEJe08ethK5Cy_idGmoaNp2NZ1Rv7mo'
+```
+
+It works
+
+```
+{"id":"12","userId":"chase","name":"john doe","phoneNumber":null,"email":"johndoe@example.com"}
+```
+
+and the log shows
+
+```
+2017-12-12 15:02:59.482  INFO 33212 --- [io-8080-exec-10] com.drive2code.JwtAuthFilter             : request received
+2017-12-12 15:02:59.482  INFO 33212 --- [io-8080-exec-10] com.drive2code.JwtAuthFilter             : checking for bearer token in Authorization header
+2017-12-12 15:02:59.482  INFO 33212 --- [io-8080-exec-10] com.drive2code.JwtAuthFilter             : Authorization header present: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjaGFzZSIsIm5hbWUiOiJDaGFzZSBGcmFua3MiLCJleHAiOjE1MTMxMTQ3NzZ9.GtDIWF14w_jcdEJe08ethK5Cy_idGmoaNp2NZ1Rv7mo
+2017-12-12 15:02:59.482  INFO 33212 --- [io-8080-exec-10] com.drive2code.JwtAuthFilter             : token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjaGFzZSIsIm5hbWUiOiJDaGFzZSBGcmFua3MiLCJleHAiOjE1MTMxMTQ3NzZ9.GtDIWF14w_jcdEJe08ethK5Cy_idGmoaNp2NZ1Rv7mo
+2017-12-12 15:02:59.484  INFO 33212 --- [io-8080-exec-10] com.drive2code.JwtAuthFilter             : jwt verified: subject = chase
+2017-12-12 15:02:59.484  INFO 33212 --- [io-8080-exec-10] com.drive2code.JwtAuthFilter             : adding authentication org.springframework.security.authentication.UsernamePasswordAuthenticationToken@95e952f5: Principal: com.drive2code.JwtAuthFilter$1@6a16ad31; Credentials: [PROTECTED]; Authenticated: true; Details: null; Not granted any authorities to the SecurityContext
+```
+
+Nice! Progressing right along. 
+
+There are a number of things that can go wrong verifying a JWT. Let's see what happens when we try to tamper with the identity. Let's change the subject in the claim to john, but leave the signature the same. The jwt I get from jwt.io looks like (just the altered payload section...remember jwts look like header.payload.signature)
+
+```
+eyJzdWIiOiJqb2huIiwibmFtZSI6IkNoYXNlIEZyYW5rcyIsImV4cCI6MTUxMzExNDc3Nn0
+```
+
+Passing this in with the same header and signature portions as above, we get
+
+```
+curl localhost:8080/api/contact/2 -H \
+'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2huIiwibmFtZSI6IkNoYXNlIEZyYW5rcyIsImV4cCI6MTUxMzExNDc3Nn0.GtDIWF14w_jcdEJe08ethK5Cy_idGmoaNp2NZ1Rv7mo'
+
+
+{"timestamp":1513113668271,"status":500,"error":"Internal Server Error","exception":"io.jsonwebtoken.SignatureException","message":"JWT signature does not match locally computed signature. JWT validity cannot be asserted and should not be trusted.","path":"/api/contact/2"}
+```
+
+This shows that we can't tamper with the identity, without regenerating the signature, hence knowing the secret.
+
+Similarly, using the expired but cryptographically valid token
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2huIiwibmFtZSI6IkNoYXNlIEZyYW5rcyIsImV4cCI6MTUxMzExMDAwMH0.xMMdQ8yHLQfKOVPRWNEh3wTZytSo9scQVCRoxUA1qyo
+```
+
+```json
+{
+    "timestamp": 1513113891585,
+    "status": 500,
+    "error": "Internal Server Error",
+    "exception": "io.jsonwebtoken.ExpiredJwtException",
+    "message": "JWT expired at 2017-12-12T14:20:00Z. Current time: 2017-12-12T15:24:51Z, a difference of 3891583 milliseconds.  Allowed clock skew: 0 milliseconds.",
+    "path": "/api/contact/12"
+}
+```
+
+We now have a stateless mechanism for authenticating a user. Every request is authenticated with a jwt which asserts the user's identity, and then forgotten after the request is served. Almost...
+
+Run the previous curl command with extra verbose output added
+
+```
+curl localhost:8080/api/contact/12 \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjaGFzZSIsIm5hbWUiOiJDaGFzZSBGcmFua3MiLCJleHAiOjE1MTMxMTQ3NzZ9.GtDIWF14w_jcdEJe08ethK5Cy_idGmoaNp2NZ1Rv7mo' -vvvv
+```
+
+```
+*   Trying ::1...
+* TCP_NODELAY set
+* Connected to localhost (::1) port 8080 (#0)
+> GET /api/contact/12 HTTP/1.1
+> Host: localhost:8080
+> User-Agent: curl/7.54.0
+> Accept: */*
+> Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjaGFzZSIsIm5hbWUiOiJDaGFzZSBGcmFua3MiLCJleHAiOjE1MTMxMTQ3NzZ9.GtDIWF14w_jcdEJe08ethK5Cy_idGmoaNp2NZ1Rv7mo
+> 
+< HTTP/1.1 200 
+< X-Content-Type-Options: nosniff
+< X-XSS-Protection: 1; mode=block
+< Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+< Pragma: no-cache
+< Expires: 0
+< X-Frame-Options: DENY
+< Set-Cookie: JSESSIONID=8943D4B4ED2882AE9222EAE4D2F609FE; Path=/; HttpOnly
+< Content-Type: application/json;charset=UTF-8
+< Transfer-Encoding: chunked
+< Date: Tue, 12 Dec 2017 21:30:18 GMT
+< 
+* Connection #0 to host localhost left intact
+{"id":"12","userId":"chase","name":"john doe","phoneNumber":null,"email":"johndoe@example.com"}
+```
+
+See that little guy 
+
+```
+Set-Cookie: JSESSIONID=8943D4B4ED2882AE9222EAE4D2F609FE; Path=/; HttpOnly
+```
+
+Retry the request with the session id passed as a cookie. We sort of get through but it looks like the output stream gets interupted...
+
+```
+curl localhost:8080/api/contact/12 -b 'JSESSIONID=8943D4B4ED2882AE9222EAE4D2F609FE'
+curl: (18) transfer closed with outstanding read data remaining
+{"id":"12","userId":"chase","name":"john doe","phoneNumber":null,"email":"johndoe@example.com"}{"timestamp":1513114382341,"status":200,"error":"OK","exception":"java.lang.NullPointerException","message":"No message available","path":"/api/contact/12"}
+```
+
+Since we got our single hard-coded contact, we made it through the filter chain. It bombed out on the response end of the filter, and I'll explain that later, but let's just ignore that for now. How did we make it through without credentials?
+
+The JSESSIONID cookie is the name of the session id created by all J2EE compliant servers when they create a session, and that's exactly what happened in the first request with the credentials. Now, the default behavior of Spring Security is to cache the authenticated principal in the session. So by passing the session id, we are using the stateful session with id 8943D4B4ED2882AE9222EAE4D2F609FE, and which contains our principal.
+
+It sounds convenient, but there's an architectural consideration here I've been hinting at all along. RESTful web services usually do not retain any state. Every request is treated as a new anonymous request when it arrives. The 'state' lives in the resources themselves, and we don't want anything to creep into the infrastructure. This is the guiding principle of REST, so that session is waiting for someone (like a developer) to start storing things in it.
+
+With this in mind, do me a solid and configure the session management this way in our  `WebSecurityConfigurerAdapter` bean
+
+```java
+protected void configure(HttpSecurity http) throws Exception {
+	http.antMatcher("/api/**")
+		.authorizeRequests().anyRequest().authenticated()
+		.and()
+		.addFilterAt(new JwtAuthFilter(jwtService), BasicAuthenticationFilter.class)
+		.csrf().disable()
+		.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+}
+
+```
+
+Now sessions will never be created.
+
+```
+curl localhost:8080/api/contact/12 -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2huIiwibmFtZSI6IkNoYXNlIEZyYW5rcyIsImV4cCI6MTUxMzExOTYwMH0.IT1CaYaWil1UbJ2somkyruLz6Z-baHhkXlfHw7yHhVI' -vvvv
+*   Trying ::1...
+* TCP_NODELAY set
+* Connected to localhost (::1) port 8080 (#0)
+> GET /api/contact/12 HTTP/1.1
+> Host: localhost:8080
+> User-Agent: curl/7.54.0
+> Accept: */*
+> Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2huIiwibmFtZSI6IkNoYXNlIEZyYW5rcyIsImV4cCI6MTUxMzExOTYwMH0.IT1CaYaWil1UbJ2somkyruLz6Z-baHhkXlfHw7yHhVI
+> 
+< HTTP/1.1 200 
+< X-Content-Type-Options: nosniff
+< X-XSS-Protection: 1; mode=block
+< Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+< Pragma: no-cache
+< Expires: 0
+< X-Frame-Options: DENY
+< Content-Type: application/json;charset=UTF-8
+< Transfer-Encoding: chunked
+< Date: Tue, 12 Dec 2017 21:48:08 GMT
+< 
+* Connection #0 to host localhost left intact
+{"id":"12","userId":"chase","name":"john doe","phoneNumber":null,"email":"johndoe@example.com"}
+```
+
+
+
+
+
+
+
+
 
