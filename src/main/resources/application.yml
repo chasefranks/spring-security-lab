@@ -1,0 +1,8 @@
+security:
+  user:
+    name: chase
+    password: changeme
+    
+  basic:
+    path:
+    - /token
