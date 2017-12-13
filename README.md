@@ -711,6 +711,136 @@ Note the 403 status code that we're returning from our handler method.
 
 Ok, we now have a functioning API for storing contacts secured by Json web tokens. Any one with a valid token can securely store and access contacts. The problem is we don't really have any control over who our users are, so let's go back to that `/token` end point we secured with basic authentication using the Spring Boot defaults. The last step is to create a store of predefined users using the in-memory user details service, wire that into the default authentication manager, and implement the handler to return a token based on the user details.
 
+### Issuing Tokens
+
+First, let's implement a basic handler for GET requests for token resources
+
+```java
+@RestController
+@RequestMapping("/token")
+public class TokenController {
+	
+	private static final Logger log = LoggerFactory.getLogger(TokenController.class);
+	
+	private JwtService jwtService;
+
+	@Autowired
+	public TokenController(JwtService jwtService) {
+		this.jwtService = jwtService;
+	}
+	
+	@GetMapping
+	public String getToken(Principal p) {
+		log.info("request for token for user {} received", p.getName());
+		return jwtService.issueToken(p.getName());
+	}
+	
+}
+```
+
+Using dependency injection we've autowired in our `JwtService`, and we've stubbed a method `issueToken`
+
+```java
+public String issueToken(String userId) {
+	// TODO implement token issuance
+	return null;
+}
+```
+
+To create a token, we use the JJWT library again, this time using the `JwtBuilder` provided by the library. Our basic implementation looks like
+
+```java
+public String issueToken(String userId) {
+		
+	// calculate expiration time
+	Date now = new Date();		
+	Date expiration = new Date(now.getTime()/1000 + expiresIn);
+	
+	String jwt = Jwts.builder()
+					.setSubject(userId)
+					.setExpiration(expiration)
+					.setHeaderParam("typ", "jwt")
+					.signWith(SignatureAlgorithm.HS256, secret.getBytes())
+					.compact();
+	
+	return jwt;
+		
+}
+```
+
+The field `expiresIn` has been set to allow the token to be used for 3 hours from time of issuance
+
+```java
+/**
+ * Issued tokens expire in 3 hours
+ */
+private final long expiresIn = 10_800L;
+```
+
+Let's try it out.
+
+```
+curl -u chase:changeme localhost:8080/token
+
+eyJ0eXAiOiJqd3QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjaGFzZSIsImV4cCI6MTUxMzIwMjgzOX0.hz4faiK4JHfJscExdJpTV6gHy2NAyCbc_CrxXF7LlJU
+```
+
+Great, so get a token. Let's try to create a contact 
+
+```
+export CHASE_JWT=eyJ0eXAiOiJqd3QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjaGFzZSIsImV4cCI6MTUxMzIwMjgzOX0.hz4faiK4JHfJscExdJpTV6gHy2NAyCbc_CrxXF7LlJU
+
+curl -XPOST localhost:8080/api/contact -H "Authorization: Bearer $CHASE_JWT" -H "Content-Type: application/json" -d '
+{
+  "name": "Clara"
+}'
+```
+
+Listing out the contacts gives
+
+```
+curl localhost:8080/api/contact -H "Authorization: Bearer $CHASE_JWT"
+
+[4658]
+```
+
+```
+curl localhost:8080/api/contact/4658 -H "Authorization: Bearer $CHASE_JWT"
+
+{"id":4658,"userId":"chase","name":"Clara","phoneNumber":null,"email":null}
+```
+
+So we can lock our contact service down to this one user by making our `jwt.secret` something really random and unguessable. The only tokens we would trust would be those signed with this secret, and would be the only service capable of issuing tokens signed with this secret.
+
+#### An Aside On 12-Factor Methodology
+
+Before we move on and expand our service to multiple users, I would like to discuss how such a secret would be deployed in a production environment.
+
+We currently have our secret defined in an unsafe place...the application.yml file. This file lives in our source tree and is meant to be checked in to a code repository, usually with sensible defaults for local development.
+
+In Spring Boot, we can override this property using an environment variable named
+
+```
+JWT_SECRET
+```
+
+Any Spring Boot property can be overridden this way, changing dots to underscores and letters to upper case.
+
+Spring Boot in fact allows application properties to be discovered from a number of locations with some locations overriding others. Environment variables are high on the order of precedence, so the application could be launched securely with
+
+```
+export JWT_SECRET=$(cat /dev/urandom | base64 | head -c 20) && java -jar /target/*.jar
+```
+
+Here we're using Linux's built-in random byte generator. In this way, the secret is known only to the shell we're launching the application in, and any child process...in this case our REST service running in Java.
+
+This idea of reading application properties from environment variables is not new, but is a best practice when it comes to applications that are run in the cloud. It is one of a list of 12 best practices called the [12 factor methodology ](https://12factor.net).
+
+This is the way to go, and Spring Boot builds this right in.
+
+
+
+
 
 
 
