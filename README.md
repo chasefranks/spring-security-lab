@@ -832,11 +832,36 @@ Spring Boot in fact allows application properties to be discovered from a number
 export JWT_SECRET=$(cat /dev/urandom | base64 | head -c 20) && java -jar /target/*.jar
 ```
 
+and there's no need to worry about the application.yml embedded at the root of the jar.
+
 Here we're using Linux's built-in random byte generator. In this way, the secret is known only to the shell we're launching the application in, and any child process...in this case our REST service running in Java.
 
 This idea of reading application properties from environment variables is not new, but is a best practice when it comes to applications that are run in the cloud. It is one of a list of 12 best practices called the [12 factor methodology ](https://12factor.net).
 
 This is the way to go, and Spring Boot builds this right in.
+
+### Multiple Users
+
+With that out of the way, let's finish our application by defining more than one user.
+
+We simply need to define a Spring bean that implements the `UserDetailsService` interface and it will automatically be injected into the `BasicAuthenticationFilter` used in the filter chain securing `/token`. We use the Spring provided `InMemoryUserDetailsManager` class to build up a user store
+
+```java
+@Bean 
+public UserDetailsService basicAuthUsers() {
+	
+	InMemoryUserDetailsManager userDetailsManager = new InMemoryUserDetailsManager();
+	
+	// define users here
+	userDetailsManager.createUser(User.withUsername("chase").password("franks").roles("ADMIN").build());
+	userDetailsManager.createUser(User.withUsername("austin").password("powers").roles("USER").build());
+	userDetailsManager.createUser(User.withUsername("fat").password("bastard").roles("USER").build());
+	userDetailsManager.createUser(User.withUsername("doctor").password("evil").roles("USER").build());
+	
+	return userDetailsManager;
+	
+}
+```
 
 
 

@@ -12,9 +12,15 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.config.annotation.authentication.configurers.provisioning.InMemoryUserDetailsManagerConfigurer;
+import org.springframework.security.config.annotation.authentication.configurers.provisioning.UserDetailsManagerConfigurer.UserDetailsBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.User.UserBuilder;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
@@ -26,6 +32,27 @@ public class SpringSecurityLabApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(SpringSecurityLabApplication.class, args);
+	}
+	
+	/**
+	 * A real {@link UserDetailsService} would connect to a database of users. Here we use an in-memory
+	 * user details service to define our users.
+	 * 
+	 * @return
+	 */
+	@Bean 
+	public UserDetailsService basicAuthUsers() {
+		
+		InMemoryUserDetailsManager userDetailsManager = new InMemoryUserDetailsManager();
+		
+		// define users here
+		userDetailsManager.createUser(User.withUsername("chase").password("franks").roles("ADMIN").build());
+		userDetailsManager.createUser(User.withUsername("austin").password("powers").roles("USER").build());
+		userDetailsManager.createUser(User.withUsername("fat").password("bastard").roles("USER").build());
+		userDetailsManager.createUser(User.withUsername("doctor").password("evil").roles("USER").build());
+		
+		return userDetailsManager;
+		
 	}
 	
 	@Bean
