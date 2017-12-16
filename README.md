@@ -863,6 +863,9 @@ public UserDetailsService basicAuthUsers() {
 }
 ```
 
+Start up the service and use the curl commands above to log in and retrieve a token. Then create a few contacts under the various users and ensure that each user can only access their contacts.
+
+Contratulations! We now have a basic REST API that is secured with stateless JSON web tokens. There's just a few loose ends we want to clean up, so we'll do that in a part 2 for this lab.
 
 
 
