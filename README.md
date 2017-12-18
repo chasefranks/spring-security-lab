@@ -18,7 +18,7 @@ In this lab, we'll set up an `AuthenticationManager` and walk through how the pr
 
 Let's get to it!
 
-### Step 1. Creating Our UserDetailsService
+### Step 1. Creating Our `UserDetailsService`
 
 We first create a `UserDetailsService` that simulates a database of users.
 
@@ -66,7 +66,7 @@ $2a$10$CSeyyERfVj77N1/LhLq4t.UR7DIdhVyTtQ4JPZGuQpk09gcUGyEha
 
 and it is impossible to recover sara from this string of gibberish. We would store the bcrypt version in the database when the user is created and forget the password sara forever by securely wiping it from memory. When the user logs in with the password sara, the password would be sent securely over HTTPS, and when it arrives to our app, we would apply the bcrypt encoder to it and compare it to the bcrypted version of the password from the database. If they match, the user is authenticated.
 
-### Step 2. Creating an AuthenticationProvider
+### Step 2. Creating an `AuthenticationProvider`
 
 The key Spring construct for performing authentication is the `AuthenticationManager`, which is an interface with one method
 
@@ -153,3 +153,26 @@ SecurityContextHolder.getContext().setAuthentication(fullyPopulatedToken);
 ```
 
 and from this point on, the user is considered authenticated in the app and can do whatever they are allowed.
+
+### Step 3. Creating a `ProviderManager`
+
+We have everything we need now to create an `AuthenticationManager`, in this case an instance of `ProviderManager`. Since `ProviderManager` depends on a list of `AuthenticationProvider`s, we can create it using the corresponding constructor, wiring in our single `DaoAuthenticationProvider` created earlier:
+
+```java
+@Bean
+public AuthenticationManager authenticationManager(AuthenticationProvider authProvider) {
+	AuthenticationManager authManager = new ProviderManager(Arrays.asList(authProvider));
+	return authManager;		
+}
+```
+
+Finally, we demo it in a `@CommandLineRunner` just as before
+
+```java
+demoProviderManager(AuthenticationManager authManager) {
+	Authentication token = new UsernamePasswordAuthenticationToken("sara", "sara");
+	Authentication fullyPopulatedToken = authManager.authenticate(token);
+}
+```
+
+
