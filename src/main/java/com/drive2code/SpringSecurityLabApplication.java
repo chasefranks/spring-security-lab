@@ -4,11 +4,17 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 
 @SpringBootApplication
 public class SpringSecurityLabApplication {
@@ -64,6 +70,55 @@ public class SpringSecurityLabApplication {
 		
 		return inMemoryUserDetailsManager;
 		
+	}
+	
+	/**
+	 * Demo how an {@link AuthenticationProvider} makes the authentication decision.
+	 * 
+	 * @param authProvider
+	 * @return
+	 */
+	@Bean
+	public CommandLineRunner demoDaoAuthenticationProvider(AuthenticationProvider authProvider) {
+		return (args) -> {
+			System.out.println(authProvider.supports(UsernamePasswordAuthenticationToken.class));
+			System.out.println(authProvider.supports(PreAuthenticatedAuthenticationToken.class));
+			
+			Authentication token = new UsernamePasswordAuthenticationToken("chase", "chase");
+			System.out.println("is authenticated: " + token.isAuthenticated());
+			
+			Authentication fullyPopulatedToken = authProvider.authenticate(token);
+			System.out.println("is authenticated: " + fullyPopulatedToken.isAuthenticated());
+			
+			if (token != fullyPopulatedToken) {
+				System.out.println("new token issued");
+			}
+			
+			fullyPopulatedToken.getAuthorities().forEach(grantedAuthority -> {
+				System.out.println(grantedAuthority.getAuthority());
+			});
+			
+			System.out.println(fullyPopulatedToken.getCredentials());
+			
+			SecurityContextHolder.getContext().setAuthentication(fullyPopulatedToken);
+			
+		};
+	}
+	
+	/**
+	 * Create a {@link DaoAuthenticationProvider} with our {@link PasswordEncoder} and 
+	 * {@link UserDetailsService} for demo purposes.
+	 * 
+	 * @param userDetails
+	 * @param passwordEncoder
+	 * @return
+	 */
+	@Bean
+	public AuthenticationProvider daoAuthenticationProvider(UserDetailsService userDetails, PasswordEncoder passwordEncoder) {
+		DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+		authProvider.setPasswordEncoder(passwordEncoder);
+		authProvider.setUserDetailsService(userDetails);
+		return authProvider;		
 	}
 	
 }
