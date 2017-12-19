@@ -1,11 +1,11 @@
-security:
-  user:
-    name: chase
-    password: changeme
-    
+security:    
   basic:
     path:
     - /token
     
 jwt:
   secret: thesecretgarden
+  
+logging:
+  level:
+    org.springframework.security: debug

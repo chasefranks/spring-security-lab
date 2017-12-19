@@ -12,18 +12,19 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.config.annotation.authentication.configurers.provisioning.InMemoryUserDetailsManagerConfigurer;
-import org.springframework.security.config.annotation.authentication.configurers.provisioning.UserDetailsManagerConfigurer.UserDetailsBuilder;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.User.UserBuilder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+
+import com.drive2code.security.JwtAuthenticationFilter;
+import com.drive2code.security.JwtAuthenticationProvider;
 
 @SpringBootApplication
 public class SpringSecurityLabApplication {
@@ -56,18 +57,24 @@ public class SpringSecurityLabApplication {
 	}
 	
 	@Bean
-	public WebSecurityConfigurerAdapter jwtWebSecurityChain(JwtService jwtService) {
+	public WebSecurityConfigurerAdapter jwtWebSecurityChain(@Value("${jwt.secret}") String secret) {
 		return new WebSecurityConfigurerAdapter() {
 			@Override
 			protected void configure(HttpSecurity http) throws Exception {
 				http.antMatcher("/api/**")
 					.authorizeRequests().anyRequest().authenticated()
 					.and()
-					.addFilterAt(new JwtAuthFilter(jwtService), BasicAuthenticationFilter.class)
+					.addFilterAt(new JwtAuthenticationFilter(authenticationManager()), BasicAuthenticationFilter.class)
 					.csrf().disable()
 					.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 			}
+			
+			@Override
+			protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+				auth.authenticationProvider(new JwtAuthenticationProvider(secret.getBytes()));
+			}
 		};
+		
 	}
 	
 	@Bean
