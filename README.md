@@ -175,9 +175,13 @@ demoProviderManager(AuthenticationManager authManager) {
 }
 ```
 
-Step 4. Use It
+### Step 4. Use It
 
-Let's put everything we've done so far together and see it in action. First let's test web security by using Spring Boot to create a protected route. By default, the url pattern `/**` is protected which matches all urls. Let's narrow this down to the pattern `/secure/**` by adding this line to the application.properties file
+Let's put everything we've done so far together and see it in action. 
+
+#### Web Security 
+
+First let's test web security by using Spring Boot to create a protected route. By default, the url pattern `/**` is protected which matches all urls. Let's narrow this down to the pattern `/secure/**` by adding this line to the application.properties file
 
 ````
 security.basic.path=/secure/**
@@ -206,6 +210,76 @@ curl -u sara:sara localhost:8080/secure
 you're in!
 ```
 
+There's another way we can test our secure configuration.
+
+#### Method Security
+
+Web security is only one side of Spring Security. You might imagine a console application that prompts a user for their user name and password, and then performs some secure work. This takes us back to the realm of basic Java objects and their methods. Since a method is the fundamental unit of execution in Java, you may wonder how we can simply secure a method invocation.
+
+To secure a method in Spring, simply apply the `@Secure` annotation. For example, let's say we want to provide a way for an admin to retrieve their password. Let's create simple Java class that returns the password:
+
+```java
+@Component
+public class AdminPasswordService {
+	@Secured({"ROLE_ADMIN"})
+	public String getPassword() {
+		return "chase";
+	}
+}
+```
+
+Any thread invoking this method has to have in its `SecurityContext` an authenticated principal with the authority `ROLE_ADMIN`. For example, if we just try to call the method from a `CommandLineRunner`
+
+```
+@Bean
+public CommandLineRunner demoMethodSecurity(AdminPasswordService adminPasswordService, AuthenticationManager authManager) {
+	return (args) -> {						
+		// attempt secure method call
+		System.out.println("admin password is: " + adminPasswordService.getPassword());
+	};
+}
+```
+
+the `main` thread would need to call
+
+```java
+SecurityContextHolder.getContext().setAuthentication(token);
+```
+
+before our invocation of the secure method `adminPasswordService.getPassword()`. So let's prompt the user for their user name and password beforehand. Since `CommandLineRunners` are run in the order they are declared, let's define one to log the user in before we attempt to invoke the secure method. Place this code before the `demoMethodSecurity` method above:
+
+```java
+@Bean 
+public CommandLineRunner consoleLogin(AuthenticationManager authManager) {
+	return (args) -> {						
+		BufferedReader in = new BufferedReader(new InputStreamReader(System.in));			
+		System.out.println("User name:");
+		String userName = in.readLine();
+		
+		System.out.println("Enter password:");
+		String password = in.readLine();
+		
+		in.close();
+		
+		System.out.println("Authenticating user: " + userName + " with supplied password");
+		Authentication token = authManager.authenticate(new UsernamePasswordAuthenticationToken(userName, password));
+		
+		System.out.println("Authentication successful");
+		SecurityContextHolder.getContext().setAuthentication(token);
+		
+	};
+}
+```
+
+Now try running it by logging in with the identity of the different users we defined in [Step 1](#step-1-creating-our-userdetailsservice). You should only be able to get the admin password with the admin user.
+
+**Challenge:** Let's expand on our demo a little. Changing our example above, allow a single admin user to change their password on start up.
+
+Hint: You can use `SecurityContextHolder.getContext().getAuthentication()` to get the currently logged in user's token inside of the `@Secured` method. Then look at the `InMemoryUserDetailsManager` docs and the available methods to figure out how to change the user's password.
+
+## References
+
+[Spring Method Security](https://docs.spring.io/spring-security/site/docs/5.0.0.RELEASE/reference/htmlsingle/#jc-method)
 
 
 

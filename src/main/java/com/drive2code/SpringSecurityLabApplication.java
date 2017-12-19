@@ -1,7 +1,10 @@
 package com.drive2code;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.Arrays;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -11,6 +14,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootApplication
+@EnableGlobalMethodSecurity(securedEnabled=true)
 public class SpringSecurityLabApplication {
 
 	public static void main(String[] args) {
@@ -107,8 +112,6 @@ public class SpringSecurityLabApplication {
 			
 			System.out.println(fullyPopulatedToken.getCredentials());
 			
-			SecurityContextHolder.getContext().setAuthentication(fullyPopulatedToken);
-			
 		};
 	}
 	
@@ -158,6 +161,37 @@ public class SpringSecurityLabApplication {
 		public String getSecure() {
 			return "you're in!";
 		}
+	}
+	
+	// uncomment to run demo
+	// @Bean 
+	public CommandLineRunner consoleLogin(AuthenticationManager authManager) {
+		return (args) -> {						
+			BufferedReader in = new BufferedReader(new InputStreamReader(System.in));			
+			System.out.println("User name:");
+			String userName = in.readLine();
+			
+			System.out.println("Enter password:");
+			String password = in.readLine();
+			
+			in.close();
+			
+			System.out.println("Authenticating user: " + userName + " with supplied password");
+			Authentication token = authManager.authenticate(new UsernamePasswordAuthenticationToken(userName, password));
+			
+			System.out.println("Authentication successful");
+			SecurityContextHolder.getContext().setAuthentication(token);
+			
+		};
+	}
+	
+	// uncomment to run demo
+	// @Bean
+	public CommandLineRunner demoMethodSecurity(AdminPasswordService adminPasswordService) {
+		return (args) -> {			
+			// attempt secure method call
+			System.out.println("admin password is: " + adminPasswordService.getPassword());
+		};
 	}
 	
 }
