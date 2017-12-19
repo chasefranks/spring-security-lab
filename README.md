@@ -175,4 +175,41 @@ demoProviderManager(AuthenticationManager authManager) {
 }
 ```
 
+Step 4. Use It
+
+Let's put everything we've done so far together and see it in action. First let's test web security by using Spring Boot to create a protected route. By default, the url pattern `/**` is protected which matches all urls. Let's narrow this down to the pattern `/secure/**` by adding this line to the application.properties file
+
+````
+security.basic.path=/secure/**
+```
+
+Now add this `@RestController` as a static member of our application bootstrap class
+
+```java
+@RestController
+@RequestMapping("/secure")
+public static class secureResource {
+	@GetMapping
+	public String getSecure() {
+		return "you're in!";
+	}
+}
+```
+
+Test it with curl
+
+```
+curl localhost:8080/secure
+{"timestamp":1513688638195,"status":401,"error":"Unauthorized","message":"Full authentication is required to access this resource","path":"/secure"}
+
+curl -u sara:sara localhost:8080/secure
+you're in!
+```
+
+
+
+
+
+
+
 

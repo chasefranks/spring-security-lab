@@ -12,7 +12,6 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.GrantedAuthoritiesContainer;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -20,6 +19,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootApplication
 public class SpringSecurityLabApplication {
@@ -147,6 +149,15 @@ public class SpringSecurityLabApplication {
 	public AuthenticationManager authenticationManager(AuthenticationProvider authProvider) {
 		AuthenticationManager authManager = new ProviderManager(Arrays.asList(authProvider));
 		return authManager;		
+	}
+	
+	@RestController
+	@RequestMapping("/secure")
+	public static class secureResource {
+		@GetMapping
+		public String getSecure() {
+			return "you're in!";
+		}
 	}
 	
 }
