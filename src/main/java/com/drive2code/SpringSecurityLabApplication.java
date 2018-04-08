@@ -47,7 +47,7 @@ public class SpringSecurityLabApplication {
 		InMemoryUserDetailsManager userDetailsManager = new InMemoryUserDetailsManager();
 		
 		// define users here
-		userDetailsManager.createUser(User.withUsername("chase").password("franks").roles("ADMIN").build());
+		userDetailsManager.createUser(User.withUsername("chase").password("franks").roles("ADMIN", "USER").build());
 		userDetailsManager.createUser(User.withUsername("austin").password("powers").roles("USER").build());
 		userDetailsManager.createUser(User.withUsername("fat").password("bastard").roles("USER").build());
 		userDetailsManager.createUser(User.withUsername("doctor").password("evil").roles("USER").build());

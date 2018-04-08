@@ -1,5 +1,6 @@
 package com.drive2code.security;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -67,7 +68,7 @@ public class JwtAuthenticationProvider implements AuthenticationProvider {
 				}
 			}
 			
-			return new JwtAuthenticationToken(token, subject, Collections.unmodifiableCollection(roles));			
+			return new JwtAuthenticationToken(token, subject, roles);			
 		} else {
 			return new JwtAuthenticationToken(token, subject);
 		}

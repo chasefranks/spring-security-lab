@@ -5,15 +5,17 @@ import java.util.Collection;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 
-@SuppressWarnings("serial") // TODO will we need serialization
-public class JwtAuthenticationToken extends AbstractAuthenticationToken {
+public final class JwtAuthenticationToken extends AbstractAuthenticationToken {
 	
-	private String credentials;
-	private String principal;
+	private static final long serialVersionUID = 804145243156880590L;
+	
+	private final String credentials;
+	private final String principal;
 	
 	public JwtAuthenticationToken(String jwt) {
 		super(null);
 		this.credentials = jwt;
+		this.principal = null;
 	}
 	
 	public JwtAuthenticationToken(String jwt, String principal) {
@@ -30,6 +32,8 @@ public class JwtAuthenticationToken extends AbstractAuthenticationToken {
 
 	public JwtAuthenticationToken(Collection<? extends GrantedAuthority> authorities) {
 		super(authorities);
+		this.credentials = null;
+		this.principal = null;
 	}
 
 	@Override
